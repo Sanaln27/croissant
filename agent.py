@@ -14,7 +14,7 @@ model=ChatOpenAI(
     base_url="https://api.aicredits.in/v1"
 )
 
-BABYGPT=create_agent(
+SANAGPT=create_agent(
     model=model,
     system_prompt= SYSTEM_PROMT,
     checkpointer=InMemorySaver()
@@ -23,7 +23,7 @@ BABYGPT=create_agent(
 
 def agent_response(query:str)->str:
     thread_config={"configurable":{"thread_id":"1"}}
-    reponse=BABYGPT.invoke({"messages": [{"role": "user", "content": query}]},thread_config,)
+    reponse=SANAGPT.invoke({"messages": [{"role": "user", "content": query}]},thread_config,)
     return reponse["messages"][-1].content
 
 if __name__ == "__main__":
