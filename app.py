@@ -11,7 +11,7 @@ app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_methods=["*"],allow_
 def shut_the_hell_up(query:str,model_name:str,thread_id:str)->str:
     return agent_response(query,model_name,thread_id)
 
-@app.get("./health")
+@app.get("/health")
 def is_it_alive():
     return {"status":"alive"}
 
