@@ -296,7 +296,7 @@ body.started #branding {
 
 .top-page {
   top: calc(9% + 15px);
-  left: calc(9% + 10px);
+  left: calc(9% + 12px);
   width: 70.45%;
   height: 70.45%;
   z-index: 2;
