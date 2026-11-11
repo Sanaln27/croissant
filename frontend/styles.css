@@ -141,6 +141,34 @@ body.started .scatter {
   max-width: 85%;
 }
 
+.audio-button {
+  display: block;
+  margin-top: 12px;
+  padding: 7px 13px;
+  border: 1px solid rgba(94, 65, 45, 0.35);
+  border-radius: 999px;
+  color: #5e412d;
+  background: rgba(255, 248, 237, 0.72);
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+}
+
+.audio-button:hover:not(:disabled) {
+  background: rgba(255, 248, 237, 0.95);
+}
+
+.audio-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.response-audio {
+  display: block;
+  width: min(360px, 100%);
+  margin-top: 10px;
+}
+
 /* Input area */
 
 #input-area {
@@ -378,11 +406,11 @@ body.started #branding {
 }
 
 body.started #input-container {
-  transform: scale(0.8);
+  transform: translateY(-28px) scale(0.8);
 }
 
 body.started #model-selector-stack {
-  transform: scale(0.8);
+  display: none;
 }
 
 input {
@@ -518,7 +546,7 @@ button#send:disabled {
   }
 
   body.started #input-container {
-    transform: scale(0.9);
+    transform: translateY(-22px) scale(0.9);
   }
 
   button#send {

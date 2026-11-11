@@ -5,6 +5,7 @@ const status = document.getElementById("status");
 const inputContainer = document.getElementById("input-container");
 const modelSelectorStack = document.getElementById("model-selector-stack");
 const threadIdElement = document.getElementById("thread-id");
+const apiEndpoints = ["http://localhost:8000"];
 
 const models = [
   { displayName: "GPT-6 Luna", modelId: "openai/gpt-6-luna" },
@@ -172,6 +173,64 @@ function addMessage(text, type) {
   return div;
 }
 
+function addAudioButton(message) {
+  const audioButton = document.createElement("button");
+  audioButton.className = "audio-button";
+  audioButton.type = "button";
+  audioButton.textContent = "Play response";
+  audioButton.disabled = true;
+  audioButton.setAttribute("aria-label", "Play response audio");
+  message.appendChild(audioButton);
+
+  let audioUrl = null;
+  let audio = null;
+
+  audioButton.addEventListener("click", () => {
+    if (!audio) return;
+
+    if (audio.paused) {
+      audio.play().catch(err => {
+        console.error("Audio playback failed:", err);
+        audioButton.textContent = "Play response";
+      });
+    } else {
+      audio.pause();
+    }
+  });
+
+  return {
+    setAudio(blob) {
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      audioUrl = URL.createObjectURL(blob);
+      audio = new Audio(audioUrl);
+      audio.controls = false;
+      audio.preload = "auto";
+      audio.volume = 1;
+      audio.muted = false;
+      audio.addEventListener("error", () => {
+        console.error("The browser could not decode the response audio.");
+        audioButton.textContent = "Audio unavailable";
+        audioButton.disabled = true;
+      });
+      audio.addEventListener("play", () => {
+        audioButton.textContent = "Pause response";
+      });
+      audio.addEventListener("pause", () => {
+        audioButton.textContent = "Play response";
+      });
+      audio.addEventListener("ended", () => {
+        audioButton.textContent = "Play response";
+      });
+      audio.load();
+      audioButton.disabled = false;
+    },
+    setUnavailable() {
+      audioButton.textContent = "Audio unavailable";
+      audioButton.disabled = true;
+    }
+  };
+}
+
 async function send() {
   const query = input.value.trim();
 
@@ -188,6 +247,7 @@ async function send() {
   input.value = "";
 
   const response = addMessage("Thinking...", "agent");
+  const audio = addAudioButton(response);
 
   status.textContent = "PROCESSING";
 
@@ -197,19 +257,84 @@ async function send() {
       model_name: modelId,
       thread_id: threadId
     });
-    const res = await fetch(
-      `http://localhost:8000/croissant?${params.toString()}`,
-      { method: "POST" }
-    );
+    let res;
+    let lastError;
 
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
+    for (const endpoint of apiEndpoints) {
+      try {
+        const candidate = await fetch(
+          `${endpoint}/croissant?${params.toString()}`,
+          { method: "POST" }
+        );
+
+        if (!candidate.ok) {
+          throw new Error(`HTTP ${candidate.status}`);
+        }
+
+        res = candidate;
+        break;
+      } catch (err) {
+        lastError = err;
+      }
     }
 
-    response.textContent = await res.text();
+    if (!res) {
+      throw lastError ?? new Error("All API endpoints failed");
+    }
+
+    const responseText = await res.text();
+    response.firstChild.textContent = responseText;
+
+    try {
+      const speakParams = new URLSearchParams({
+        text: responseText,
+        language: "en-IN"
+      });
+      let audioResponse;
+      let audioLastError;
+
+      for (const endpoint of apiEndpoints) {
+        try {
+          const candidate = await fetch(
+            `${endpoint}/speak?${speakParams.toString()}`,
+            { method: "POST" }
+          );
+
+          if (!candidate.ok) {
+            throw new Error(`HTTP ${candidate.status}`);
+          }
+          if (!candidate.headers.get("content-type")?.startsWith("audio/")) {
+            throw new Error("Speech endpoint returned a non-audio response");
+          }
+
+          audioResponse = candidate;
+          break;
+        } catch (err) {
+          audioLastError = err;
+        }
+      }
+
+      if (!audioResponse) {
+        throw audioLastError ?? new Error("All audio API endpoints failed");
+      }
+
+      const blob = await audioResponse.blob();
+      console.log("TTS audio:", {
+        type: blob.type,
+        size: blob.size,
+        contentLength: audioResponse.headers.get("content-length")
+      });
+      if (!blob.size) {
+        throw new Error("Speech endpoint returned empty audio");
+      }
+      audio.setAudio(blob);
+    } catch (audioError) {
+      console.error("Could not generate response audio:", audioError);
+      audio.setUnavailable();
+    }
 
   } catch (err) {
-    response.textContent = `Error: ${err.message}`;
+    response.firstChild.textContent = `Error: ${err.message}`;
 
   } finally {
     busy = false;

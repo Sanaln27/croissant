@@ -1,6 +1,8 @@
 from fastapi import FastAPI
+from fastapi.responses import Response
 from agent import agent_response
 import uvicorn
+from Sarvam import sarvam_tts
 from fastapi.middleware.cors import CORSMiddleware
 
 
@@ -8,8 +10,12 @@ app=FastAPI()
 app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_methods=["*"],allow_headers=["*"])
 
 @app.post("/croissant")
-def shut_the_hell_up(query:str,model_name:str,thread_id:str)->str:
+def croissant(query:str,model_name:str,thread_id:str)->str:
     return agent_response(query,model_name,thread_id)
+
+@app.post("/speak")
+def speak(text: str, language: str = "en-US") -> Response:
+    return Response(content=sarvam_tts(text, language), media_type="audio/mpeg")
 
 @app.get("/health")
 def is_it_alive():
