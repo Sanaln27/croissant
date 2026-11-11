@@ -149,6 +149,29 @@ function scatterBackgroundAssets() {
 
 scatterBackgroundAssets();
 
+function stripWrappingQuotes(text) {
+  const trimmed = String(text).trim();
+  const quotePairs = [["\"", "\""], ["'", "'"], ["“", "”"], ["‘", "’"]];
+  for (const [opening, closing] of quotePairs) {
+    if (trimmed.startsWith(opening) && trimmed.endsWith(closing) && trimmed.length >= 2) {
+      return trimmed.slice(opening.length, -closing.length);
+    }
+  }
+  return String(text);
+}
+
+function renderMarkdown(container, markdown) {
+  const source = stripWrappingQuotes(markdown)
+    .replace(/\\r\\n/g, "\n")
+    .replace(/\\n/g, "\n")
+    .replace(/\\t/g, "\t");
+  if (globalThis.marked && globalThis.DOMPurify) {
+    container.innerHTML = DOMPurify.sanitize(marked.parse(source, { gfm: true }));
+  } else {
+    container.textContent = source;
+  }
+}
+
 function addMessage(text, type) {
   if (type === "agent") {
     const row = document.createElement("div");
@@ -161,7 +184,10 @@ function addMessage(text, type) {
 
     const div = document.createElement("div");
     div.className = "message agent";
-    div.textContent = text;
+    const content = document.createElement("div");
+    content.className = "markdown-content";
+    renderMarkdown(content, text);
+    div.appendChild(content);
 
     row.appendChild(avatar);
     row.appendChild(div);
@@ -173,7 +199,10 @@ function addMessage(text, type) {
 
   const div = document.createElement("div");
   div.className = `message ${type}`;
-  div.textContent = text;
+  const content = document.createElement("div");
+  content.className = "markdown-content";
+  renderMarkdown(content, text);
+  div.appendChild(content);
 
   chat.appendChild(div);
 
@@ -358,7 +387,7 @@ async function send() {
     }
 
     const responseText = await res.text();
-    response.firstChild.textContent = responseText;
+    renderMarkdown(response.querySelector(".markdown-content"), responseText);
 
     try {
       const speakParams = new URLSearchParams({
@@ -409,7 +438,7 @@ async function send() {
     }
 
   } catch (err) {
-    response.firstChild.textContent = `Error: ${err.message}`;
+    renderMarkdown(response.querySelector(".markdown-content"), `Error: ${err.message}`);
 
   } finally {
     busy = false;

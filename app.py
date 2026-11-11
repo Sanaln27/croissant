@@ -12,7 +12,7 @@ app.add_middleware(CORSMiddleware,allow_origins=["*"],allow_methods=["*"],allow_
 @app.post("/croissant")
 def croissant(query: str, model_name: str, thread_id: str, image: UploadFile | None = File(None)) -> str:
     image_bytes = image.file.read() if image is not None else None
-    image_media_type = image.content_type if image is not None else Noneu
+    image_media_type = image.content_type if image is not None else None
     return agent_response(query, image_bytes, image_media_type, model_name, thread_id)
 
 @app.post("/speak")
