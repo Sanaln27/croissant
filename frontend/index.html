@@ -60,6 +60,11 @@
     </div>
 
     <div id="input-container">
+      <div id="image-preview" hidden>
+        <img id="image-preview-thumb" alt="">
+        <span id="image-preview-name"></span>
+        <button id="remove-image" type="button" aria-label="Remove attached image">×</button>
+      </div>
       <input
         id="query"
         placeholder="Message..."
@@ -72,6 +77,8 @@
   </div>
 
 </div>
+
+<div id="drop-overlay" aria-hidden="true">Drop an image onto the oven</div>
 
 <div id="request-metadata" aria-live="polite">
   <span>Thread: <strong id="thread-id"></strong></span>

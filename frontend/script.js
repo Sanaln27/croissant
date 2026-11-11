@@ -5,6 +5,11 @@ const status = document.getElementById("status");
 const inputContainer = document.getElementById("input-container");
 const modelSelectorStack = document.getElementById("model-selector-stack");
 const threadIdElement = document.getElementById("thread-id");
+const imagePreview = document.getElementById("image-preview");
+const imagePreviewThumb = document.getElementById("image-preview-thumb");
+const imagePreviewName = document.getElementById("image-preview-name");
+const removeImageButton = document.getElementById("remove-image");
+const dropOverlay = document.getElementById("drop-overlay");
 const apiEndpoints = ["http://localhost:8000"];
 
 const models = [
@@ -22,6 +27,9 @@ let modelId = models[activeModelIndex].modelId;
 const threadId = globalThis.crypto?.randomUUID?.()
   ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 let busy = false;
+let attachedImage = null;
+let attachedImageUrl = null;
+let fileDragDepth = 0;
 let dragStartY = null;
 let dragPointerId = null;
 let passedSnapThreshold = false;
@@ -173,6 +181,67 @@ function addMessage(text, type) {
   return div;
 }
 
+function showUserMessage(text, image) {
+  const div = addMessage(text, "user");
+  if (image) {
+    const imageElement = document.createElement("img");
+    imageElement.className = "user-image";
+    imageElement.src = URL.createObjectURL(image);
+    imageElement.alt = image.name || "Attached image";
+    div.prepend(imageElement);
+  }
+  return div;
+}
+
+function setAttachedImage(file) {
+  if (!file || !file.type.startsWith("image/")) {
+    status.textContent = "Please drop an image file.";
+    return;
+  }
+  if (attachedImageUrl) URL.revokeObjectURL(attachedImageUrl);
+  attachedImage = file;
+  attachedImageUrl = URL.createObjectURL(file);
+  imagePreviewThumb.src = attachedImageUrl;
+  imagePreviewName.textContent = file.name;
+  imagePreview.hidden = false;
+  status.textContent = "";
+}
+
+function clearAttachedImage() {
+  if (attachedImageUrl) URL.revokeObjectURL(attachedImageUrl);
+  attachedImage = null;
+  attachedImageUrl = null;
+  imagePreviewThumb.removeAttribute("src");
+  imagePreview.hidden = true;
+}
+
+removeImageButton.addEventListener("click", clearAttachedImage);
+
+window.addEventListener("dragenter", event => {
+  if (!event.dataTransfer?.types.includes("Files")) return;
+  event.preventDefault();
+  fileDragDepth++;
+  dropOverlay.classList.add("is-visible");
+});
+
+window.addEventListener("dragover", event => {
+  if (event.dataTransfer?.types.includes("Files")) event.preventDefault();
+});
+
+window.addEventListener("dragleave", event => {
+  if (!event.dataTransfer?.types.includes("Files")) return;
+  fileDragDepth = Math.max(0, fileDragDepth - 1);
+  if (fileDragDepth === 0) dropOverlay.classList.remove("is-visible");
+});
+
+window.addEventListener("drop", event => {
+  if (!event.dataTransfer?.files.length) return;
+  event.preventDefault();
+  fileDragDepth = 0;
+  dropOverlay.classList.remove("is-visible");
+  setAttachedImage(event.dataTransfer.files[0]);
+});
+
 function addAudioButton(message) {
   const audioButton = document.createElement("button");
   audioButton.className = "audio-button";
@@ -234,7 +303,10 @@ function addAudioButton(message) {
 async function send() {
   const query = input.value.trim();
 
-  if (!query || busy) return;
+  if ((!query && !attachedImage) || busy) return;
+
+  const imageToSend = attachedImage;
+  const displayedQuery = query || "What is in this image?";
 
   busy = true;
 
@@ -243,8 +315,9 @@ async function send() {
   button.disabled = true;
   input.disabled = true;
 
-  addMessage(query, "user");
+  showUserMessage(displayedQuery, imageToSend);
   input.value = "";
+  clearAttachedImage();
 
   const response = addMessage("Thinking...", "agent");
   const audio = addAudioButton(response);
@@ -253,10 +326,12 @@ async function send() {
 
   try {
     const params = new URLSearchParams({
-      query,
+      query: displayedQuery,
       model_name: modelId,
       thread_id: threadId
     });
+    const body = new FormData();
+    if (imageToSend) body.append("image", imageToSend, imageToSend.name);
     let res;
     let lastError;
 
@@ -264,7 +339,7 @@ async function send() {
       try {
         const candidate = await fetch(
           `${endpoint}/croissant?${params.toString()}`,
-          { method: "POST" }
+          { method: "POST", body }
         );
 
         if (!candidate.ok) {
@@ -489,7 +564,7 @@ function handlePointerMove(event) {
   const handleCenter = event.clientY - bounds.top;
   const snapThreshold = bounds.height *
     (parseFloat(handleStyles.getPropertyValue("--handle-snap-threshold")) / 100);
-  const hasText = Boolean(input.value.trim());
+  const hasText = Boolean(input.value.trim() || attachedImage);
 
   if (hasText && (passedSnapThreshold || handleCenter >= snapThreshold)) {
     passedSnapThreshold = true;
@@ -524,7 +599,7 @@ function handlePointerUp(event) {
   const snapThreshold = bounds.height *
     (parseFloat(handleStyles.getPropertyValue("--handle-snap-threshold")) / 100);
   const releasedBelowThreshold = event.clientY - bounds.top >= snapThreshold;
-  const shouldSnapToBottom = Boolean(input.value.trim()) &&
+  const shouldSnapToBottom = Boolean(input.value.trim() || attachedImage) &&
     (passedSnapThreshold || releasedBelowThreshold);
   button.releasePointerCapture(event.pointerId);
   button.classList.remove("is-dragging");
@@ -533,7 +608,7 @@ function handlePointerUp(event) {
 
   if (shouldSnapToBottom) {
     snapHandle(true);
-    if (input.value.trim()) {
+    if (input.value.trim() || attachedImage) {
       send();
     }
   } else {
