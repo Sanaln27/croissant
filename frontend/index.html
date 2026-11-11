@@ -42,15 +42,35 @@
     <span><strong>Croissant</strong></span>
   </div>
 
-  <div id="input-container">
-    <input
-      id="query"
-      placeholder="Message..."
-      autocomplete="off"
-    />
-    <button id="send" type="button" aria-label="Drag down to send">
-      <img src="assests/handle.png" alt="">
-    </button>
+  <div id="oven-row">
+    <div id="model-selector-stack" aria-hidden="true">
+      <img
+        class="top-page-next"
+        src="assests/top_page.png"
+        alt=""
+      >
+      <img
+        id="model-selector"
+        src="assests/model_selector.png"
+        alt=""
+      >
+      <img
+        class="top-page"
+        src="assests/top_page.png"
+        alt=""
+      >
+    </div>
+
+    <div id="input-container">
+      <input
+        id="query"
+        placeholder="Message..."
+        autocomplete="off"
+      />
+      <button id="send" type="button" aria-label="Drag down to send">
+        <img src="assests/handle.png" alt="">
+      </button>
+    </div>
   </div>
 
   <div id="request-metadata" aria-live="polite">

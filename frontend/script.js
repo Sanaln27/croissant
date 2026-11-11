@@ -3,6 +3,7 @@ const input = document.getElementById("query");
 const button = document.getElementById("send");
 const status = document.getElementById("status");
 const inputContainer = document.getElementById("input-container");
+const modelSelectorStack = document.getElementById("model-selector-stack");
 const threadIdElement = document.getElementById("thread-id");
 const modelNameElement = document.getElementById("model-name");
 
@@ -13,6 +14,13 @@ let busy = false;
 let dragStartY = null;
 let dragPointerId = null;
 let passedSnapThreshold = false;
+let pageDragPointerId = null;
+let pageDragStartX = 0;
+let pageDragStartY = 0;
+let pageDragX = 0;
+let pageDragY = 0;
+let activeTopPage = modelSelectorStack.querySelector(".top-page");
+const pageDismissDistance = 180;
 
 threadIdElement.textContent = threadId;
 modelNameElement.textContent = modelName;
@@ -214,6 +222,99 @@ function snapHandle(toBottom) {
     ? "var(--handle-bottom)"
     : "var(--handle-top)";
 }
+
+function setTopPageTransform(x, y, rotation) {
+  activeTopPage.style.transform =
+    `translate(${x}px, ${y}px) rotate(${rotation}deg)`;
+}
+
+function handleTopPagePointerDown(event) {
+  const page = event.target.closest(".top-page");
+  if (
+    !page ||
+    pageDragPointerId !== null ||
+    page.classList.contains("is-ripped")
+  ) {
+    return;
+  }
+
+  activeTopPage = page;
+  pageDragPointerId = event.pointerId;
+  pageDragStartX = event.clientX;
+  pageDragStartY = event.clientY;
+  pageDragX = 0;
+  pageDragY = 0;
+  activeTopPage.classList.add("is-dragging");
+  activeTopPage.setPointerCapture(event.pointerId);
+  event.preventDefault();
+}
+
+function handleTopPagePointerMove(event) {
+  if (pageDragPointerId !== event.pointerId) return;
+
+  pageDragX = event.clientX - pageDragStartX;
+  pageDragY = Math.max(0, event.clientY - pageDragStartY);
+  if (Math.hypot(pageDragX, pageDragY) > 2) {
+    modelSelectorStack.classList.add("has-next-page");
+  }
+  const rotation = pageDragX * 0.12 + pageDragY * 0.025;
+  setTopPageTransform(pageDragX, pageDragY, rotation);
+  if (Math.hypot(pageDragX, pageDragY) >= pageDismissDistance) {
+    activeTopPage.classList.add("is-dismissed");
+  }
+  event.preventDefault();
+}
+
+function handleTopPagePointerUp(event) {
+  if (pageDragPointerId !== event.pointerId) return;
+
+  const dismissed = activeTopPage.classList.contains("is-dismissed");
+  const movedEnough = pageDragY > 28 || Math.abs(pageDragX) > 28;
+  const direction = pageDragX < 0 ? -1 : 1;
+  activeTopPage.releasePointerCapture(event.pointerId);
+  activeTopPage.classList.remove("is-dragging");
+  pageDragPointerId = null;
+
+  if (dismissed) {
+    const finalX = direction * Math.max(145, Math.abs(pageDragX));
+    const finalY = Math.max(145, pageDragY);
+    setTopPageTransform(finalX, finalY, direction * 24);
+    activeTopPage.classList.add("is-ripped");
+    promoteReplacementPage();
+    addReplacementPage();
+  } else if (movedEnough) {
+    const finalX = direction * Math.max(145, Math.abs(pageDragX));
+    const finalY = Math.max(145, pageDragY);
+    setTopPageTransform(finalX, finalY, direction * 24);
+    activeTopPage.classList.add("is-ripped");
+    promoteReplacementPage();
+    addReplacementPage();
+  } else {
+    setTopPageTransform(0, 0, 0);
+  }
+}
+
+function addReplacementPage() {
+  const replacement = document.createElement("img");
+  replacement.className = "top-page-next";
+  replacement.src = "assests/top_page.png";
+  replacement.alt = "";
+  modelSelectorStack.insertBefore(replacement, activeTopPage);
+  modelSelectorStack.classList.add("has-next-page");
+}
+
+function promoteReplacementPage() {
+  const replacement = modelSelectorStack.querySelector(".top-page-next");
+  if (!replacement) return;
+
+  replacement.classList.remove("top-page-next");
+  replacement.classList.add("top-page");
+}
+
+modelSelectorStack.addEventListener("pointerdown", handleTopPagePointerDown);
+modelSelectorStack.addEventListener("pointermove", handleTopPagePointerMove);
+modelSelectorStack.addEventListener("pointerup", handleTopPagePointerUp);
+modelSelectorStack.addEventListener("pointercancel", handleTopPagePointerUp);
 
 function handlePointerDown(event) {
   if (busy) return;
