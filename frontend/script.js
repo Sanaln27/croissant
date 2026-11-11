@@ -5,9 +5,19 @@ const status = document.getElementById("status");
 const inputContainer = document.getElementById("input-container");
 const modelSelectorStack = document.getElementById("model-selector-stack");
 const threadIdElement = document.getElementById("thread-id");
-const modelNameElement = document.getElementById("model-name");
 
-const modelName = "openai/gpt-6-luna";
+const models = [
+  { displayName: "GPT-6 Luna", modelId: "openai/gpt-6-luna" },
+  { displayName: "GPT-5.6 Luna", modelId: "openai/gpt-5.6-luna" },
+  { displayName: "DeepSeek V4.1 Flash", modelId: "deepseek/deepseek-v4.1-flash" },
+  { displayName: "MiniMax M3.1 Flash", modelId: "minimax/minimax-m3.1-flash" },
+  { displayName: "GLM 5.3 Flash", modelId: "z-ai/glm-5.3-flash" },
+  { displayName: "Qwen 3.5 Flash", modelId: "qwen/qwen3.5-flash-02-23" },
+  { displayName: "Mistral Small 4", modelId: "mistralai/mistral-small-2603" },
+  { displayName: "Claude Haiku 5.5", modelId: "anthropic/claude-haiku-5.5" }
+];
+let activeModelIndex = 0;
+let modelId = models[activeModelIndex].modelId;
 const threadId = globalThis.crypto?.randomUUID?.()
   ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 let busy = false;
@@ -19,11 +29,12 @@ let pageDragStartX = 0;
 let pageDragStartY = 0;
 let pageDragX = 0;
 let pageDragY = 0;
-let activeTopPage = modelSelectorStack.querySelector(".top-page");
+let activeTopPage = modelSelectorStack.querySelector(
+  ".top-page:not(.top-page-next)"
+);
 const pageDismissDistance = 180;
 
 threadIdElement.textContent = threadId;
-modelNameElement.textContent = modelName;
 
 function randomBetween(min, max) {
   return min + Math.random() * (max - min);
@@ -183,7 +194,7 @@ async function send() {
   try {
     const params = new URLSearchParams({
       query,
-      model_name: modelName,
+      model_name: modelId,
       thread_id: threadId
     });
     const res = await fetch(
@@ -232,6 +243,7 @@ function handleTopPagePointerDown(event) {
   const page = event.target.closest(".top-page");
   if (
     !page ||
+    page !== activeTopPage ||
     pageDragPointerId !== null ||
     page.classList.contains("is-ripped")
   ) {
@@ -295,10 +307,19 @@ function handleTopPagePointerUp(event) {
 }
 
 function addReplacementPage() {
-  const replacement = document.createElement("img");
-  replacement.className = "top-page-next";
-  replacement.src = "assests/top_page.png";
-  replacement.alt = "";
+  const replacement = document.createElement("div");
+  replacement.className = "top-page top-page-next";
+  replacement.dataset.modelIndex = String(
+    (activeModelIndex + 1) % models.length
+  );
+  const replacementImage = document.createElement("img");
+  replacementImage.src = "assests/top_page.png";
+  replacementImage.alt = "";
+  const replacementLabel = document.createElement("span");
+  replacementLabel.className = "top-page-label";
+  replacementLabel.textContent =
+    models[Number(replacement.dataset.modelIndex)].displayName;
+  replacement.append(replacementImage, replacementLabel);
   modelSelectorStack.insertBefore(replacement, activeTopPage);
   modelSelectorStack.classList.add("has-next-page");
 }
@@ -307,8 +328,10 @@ function promoteReplacementPage() {
   const replacement = modelSelectorStack.querySelector(".top-page-next");
   if (!replacement) return;
 
+  activeModelIndex = Number(replacement.dataset.modelIndex);
+  modelId = models[activeModelIndex].modelId;
   replacement.classList.remove("top-page-next");
-  replacement.classList.add("top-page");
+  activeTopPage = replacement;
 }
 
 modelSelectorStack.addEventListener("pointerdown", handleTopPagePointerDown);

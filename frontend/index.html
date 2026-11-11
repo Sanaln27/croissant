@@ -44,21 +44,19 @@
 
   <div id="oven-row">
     <div id="model-selector-stack" aria-hidden="true">
-      <img
-        class="top-page-next"
-        src="assests/top_page.png"
-        alt=""
-      >
+      <div class="top-page top-page-next" data-model-index="1">
+        <img src="assests/top_page.png" alt="">
+        <span class="top-page-label">GPT-5.6 Luna</span>
+      </div>
       <img
         id="model-selector"
         src="assests/model_selector.png"
         alt=""
       >
-      <img
-        class="top-page"
-        src="assests/top_page.png"
-        alt=""
-      >
+      <div class="top-page" data-model-index="0">
+        <img src="assests/top_page.png" alt="">
+        <span class="top-page-label">GPT-6 Luna</span>
+      </div>
     </div>
 
     <div id="input-container">
@@ -73,11 +71,10 @@
     </div>
   </div>
 
-  <div id="request-metadata" aria-live="polite">
-    <span>Thread: <strong id="thread-id"></strong></span>
-    <span>Model: <strong id="model-name"></strong></span>
-  </div>
+</div>
 
+<div id="request-metadata" aria-live="polite">
+  <span>Thread: <strong id="thread-id"></strong></span>
 </div>
 
 <script src="script.js"></script>
