@@ -222,6 +222,21 @@ body.started .scatter {
   margin-top: 10px;
 }
 
+.component-frame {
+  display: block;
+  width: min(1260px, calc(100vw - 100px));
+  max-width: none;
+  height: 560px;
+  margin-top: 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  background: #fffaf2;
+  box-shadow: 0 12px 32px rgba(60, 39, 24, 0.14);
+}
+
+.agent:has(.component-frame) { max-width: none; min-width: 0; }
+.agent-row:has(.component-frame) { width: max-content; max-width: calc(100vw - 48px); }
+
 /* Input area */
 
 #input-area {
@@ -687,6 +702,10 @@ button#send:disabled {
   .agent {
     max-width: calc(100% - 60px);
   }
+
+  .agent:has(.component-frame) { max-width: none; }
+  .agent-row:has(.component-frame) { max-width: calc(100vw - 24px); }
+  .component-frame { width: calc(100vw - 100px); }
 
   .agent-avatar {
     width: 46px;

@@ -5,6 +5,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from  dotenv import load_dotenv
+from tools import send_text, send_component
 
 load_dotenv()
 SYSTEM_PROMT=Path("system_promt.md").read_text(encoding="utf-8")
@@ -23,6 +24,7 @@ def agent_response(query: str, image: bytes | None, image_media_type: str | None
     SANAGPT=create_agent(
         model=model,
         system_prompt= SYSTEM_PROMT,
+        tools=[send_text, send_component],
         checkpointer=InMemorySaver()
     )
     thread_config={"configurable":{"thread_id":thread_id}}

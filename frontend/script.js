@@ -350,48 +350,100 @@ async function send() {
 
   const response = addMessage("Thinking...", "agent");
   const audio = addAudioButton(response);
+  let appendedText = "";
 
   status.textContent = "PROCESSING";
 
   try {
-    const params = new URLSearchParams({
-      query: displayedQuery,
-      model_name: modelId,
-      thread_id: threadId
-    });
-    const body = new FormData();
-    if (imageToSend) body.append("image", imageToSend, imageToSend.name);
-    let res;
-    let lastError;
+    const imageData = imageToSend
+      ? await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(",")[1]);
+          reader.onerror = () => reject(new Error("Could not read image"));
+          reader.readAsDataURL(imageToSend);
+        })
+      : null;
 
-    for (const endpoint of apiEndpoints) {
-      try {
-        const candidate = await fetch(
-          `${endpoint}/croissant?${params.toString()}`,
-          { method: "POST", body }
-        );
+    const endpoint = new URL(apiEndpoints[0]);
+    const scheme = endpoint.protocol === "https:" ? "wss:" : "ws:";
+    const socket = new WebSocket(
+      `${scheme}//${endpoint.host}/croissant`
+    );
 
-        if (!candidate.ok) {
-          throw new Error(`HTTP ${candidate.status}`);
+    const responseText = await new Promise((resolve, reject) => {
+      socket.onopen = () => {
+        socket.send(JSON.stringify({
+          query: displayedQuery,
+          model_name: modelId,
+          thread_id: threadId,
+          image: imageData,
+          image_media_type: imageToSend?.type ?? null
+        }));
+      };
+
+      socket.onmessage = event => {
+        const message = JSON.parse(event.data);
+
+        if (message.type === "tool_update") {
+          renderMarkdown(
+            response.querySelector(".markdown-content"),
+            `**${message.function}**: ${message.content}`
+          );
+        } else if (message.type === "text") {
+          appendedText += `${appendedText ? "\n\n" : ""}${message.content}`;
+          renderMarkdown(
+            response.querySelector(".markdown-content"),
+            appendedText
+          );
+        } else if (message.type === "component") {
+          const componentPaths = {
+            calculator: "components/calculator.html",
+            plot2d: "components/plot2d.html",
+            plot3d: "components/plot3d.html",
+            periodic_table: "components/periodic-table.html"
+          };
+          const componentPath = componentPaths[message.name];
+          if (componentPath) {
+            const frame = document.createElement("iframe");
+            frame.className = "component-frame";
+            frame.title = ({
+              calculator: "Calculator",
+              plot2d: "2D equation plotter",
+              plot3d: "3D surface plotter",
+              periodic_table: "Periodic table"
+            })[message.name];
+            const componentUrl = new URL(componentPath, window.location.href);
+            if ((message.name === "plot2d" || message.name === "plot3d") && typeof message.props?.equation === "string") {
+              componentUrl.searchParams.set("equation", message.props.equation);
+            }
+            frame.src = componentUrl.href;
+            frame.loading = "lazy";
+            frame.setAttribute("sandbox", "allow-scripts");
+            response.insertBefore(frame, response.querySelector(".audio-button"));
+            response.classList.add("has-component");
+          }
+        } else if (message.type === "result") {
+          appendedText += `${appendedText ? "\n\n" : ""}${message.content}`;
+          renderMarkdown(
+            response.querySelector(".markdown-content"),
+            appendedText
+          );
+          resolve(message.content);
+        } else if (message.type === "error") {
+          reject(new Error(message.content));
         }
+      };
 
-        res = candidate;
-        break;
-      } catch (err) {
-        lastError = err;
-      }
-    }
+      socket.onerror = () => reject(new Error("WebSocket connection failed"));
+      socket.onclose = () => reject(new Error("WebSocket connection closed"));
+    }).finally(() => socket.close());
 
-    if (!res) {
-      throw lastError ?? new Error("All API endpoints failed");
-    }
-
-    const responseText = await res.text();
-    renderMarkdown(response.querySelector(".markdown-content"), responseText);
-
-    try {
+    const speechText = responseText.trim() ? responseText : appendedText.trim();
+    if (!speechText) {
+      audio.setUnavailable();
+    } else try {
       const speakParams = new URLSearchParams({
-        text: responseText,
+        text: speechText,
         language: "en-IN"
       });
       let audioResponse;
